@@ -7,13 +7,13 @@
 
 namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 
-use Spryker\Zed\OpenTelemetry\Business\Generator\Instrumentation\CachedInstrumentation;
+use Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation;
 use Symfony\Component\HttpFoundation\Request;
 
 interface ApplicationInstrumentationInterface
 {
     /**
-     * @param \Spryker\Zed\OpenTelemetry\Business\Generator\Instrumentation\CachedInstrumentation $instrumentation
+     * @param \Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation $instrumentation
      * @param \Symfony\Component\HttpFoundation\Request $request
      *
      * @return void

@@ -16,7 +16,7 @@ use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Spryker\Shared\Application\Application;
-use Spryker\Zed\OpenTelemetry\Business\Generator\Instrumentation\CachedInstrumentation;
+use Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
@@ -34,7 +34,7 @@ class ApplicationInstrumentation implements ApplicationInstrumentationInterface
     protected const APPLICATION_TRACE_ID_KEY = 'application_trace_id';
 
     /**
-     * @param \Spryker\Zed\OpenTelemetry\Business\Generator\Instrumentation\CachedInstrumentation $instrumentation
+     * @param \Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation $instrumentation
      * @param \Symfony\Component\HttpFoundation\Request $request
      *
      * @return void
