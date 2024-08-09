@@ -2,6 +2,8 @@
 
 declare(strict_types=1);
 
+use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
+use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
 use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\ApplicationInstrumentation;
 
 if (extension_loaded('opentelemetry') === false) {
@@ -10,11 +12,5 @@ if (extension_loaded('opentelemetry') === false) {
     return;
 }
 
-/**
- * @TO-DO Adjust
- */
-ApplicationInstrumentation::register(
-    new \Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation(),
-    (new \Spryker\Zed\Opentelemetry\Business\Generator\Request\RequestProcessor())->getRequest()
-);
+ApplicationInstrumentation::register(new CachedInstrumentation(), new RequestProcessor());
 

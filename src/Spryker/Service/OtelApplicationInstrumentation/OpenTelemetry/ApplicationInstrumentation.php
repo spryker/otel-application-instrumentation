@@ -17,7 +17,9 @@ use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Spryker\Shared\Application\Application;
-use Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation;
+use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
+use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentationInterface;
+use Spryker\Shared\Opentelemetry\Request\RequestProcessorInterface;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
@@ -55,35 +57,35 @@ class ApplicationInstrumentation implements ApplicationInstrumentationInterface
     protected const ERROR_TEXT_PLACEHOLDER = 'Error: %s in %s on line %d';
 
     /**
-     * @param \Spryker\Zed\Opentelemetry\Business\Generator\Instrumentation\CachedInstrumentation $instrumentation
-     * @param \Symfony\Component\HttpFoundation\Request $request
+     * @param \Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentationInterface $instrumentation
+     * @param \Spryker\Shared\Opentelemetry\Request\RequestProcessorInterface $request
      *
      * @return void
      */
     public static function register(
-        CachedInstrumentation $instrumentation,
-        Request $request
+        CachedInstrumentationInterface $instrumentation,
+        RequestProcessorInterface $request
     ): void {
         hook(
             class: Application::class,
             function: static::METHOD_NAME,
             pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
-
                 if (!defined('OTEL_APPLICATION_TRACE_ID')) {
                     define('OTEL_APPLICATION_TRACE_ID', uuid_create());
                 }
+                
                 $input = [static::APPLICATION_TRACE_ID_KEY => OTEL_APPLICATION_TRACE_ID];
                 TraceContextPropagator::getInstance()->inject($input);
 
                 $span = $instrumentation::getCachedInstrumentation()
                     ->tracer()
-                    ->spanBuilder(static::formatSpanName($request))
+                    ->spanBuilder(static::formatSpanName($request->getRequest()))
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
                     ->setAttribute(TraceAttributes::CODE_FILEPATH, $filename)
                     ->setAttribute(TraceAttributes::CODE_LINENO, $lineno)
-                    ->setAttribute(TraceAttributes::URL_QUERY, $request->getQueryString())
+                    ->setAttribute(TraceAttributes::URL_QUERY, $request->getRequest()->getQueryString())
                     ->startSpan();
 
                 Context::storage()->attach($span->storeInContext(Context::getCurrent()));
