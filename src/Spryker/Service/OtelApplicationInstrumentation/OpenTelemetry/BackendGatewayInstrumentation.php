@@ -19,16 +19,17 @@ use OpenTelemetry\SemConv\TraceAttributes;
 use Spryker\Shared\Application\Application;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentationInterface;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessorInterface;
+use Spryker\Zed\Application\Communication\Bootstrap\BackendGatewayBootstrap;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
 
-class ApplicationInstrumentation
+class BackendGatewayInstrumentation
 {
     /**
      * @var string
      */
-    protected const METHOD_NAME = 'run';
+    protected const METHOD_NAME = 'boot';
 
     /**
      * @var string
@@ -38,7 +39,7 @@ class ApplicationInstrumentation
     /**
      * @var string
      */
-    protected const APPLICATION_TRACE_ID_KEY = 'application_trace_id';
+    protected const BACKEND_GATEWAY_TRACE_ID_KEY = 'backend_gateway_trace_id';
 
     /**
      * @var string
@@ -67,18 +68,18 @@ class ApplicationInstrumentation
     ): void {
         // phpcs:disable
         hook(
-            class: Application::class,
+            class: BackendGatewayBootstrap::class,
             function: static::METHOD_NAME,
             pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
                 if ($instrumentation::getCachedInstrumentation() === null || $request->getRequest() === null) {
                     return;
                 }
 
-                if (!defined('OTEL_APPLICATION_TRACE_ID')) {
-                    define('OTEL_APPLICATION_TRACE_ID', uuid_create());
+                if (!defined('OTEL_BACKEND_GATEWAY_TRACE_ID')) {
+                    define('OTEL_BACKEND_GATEWAY_TRACE_ID', uuid_create());
                 }
 
-                $input = [static::APPLICATION_TRACE_ID_KEY => OTEL_APPLICATION_TRACE_ID];
+                $input = [static::BACKEND_GATEWAY_TRACE_ID_KEY => OTEL_BACKEND_GATEWAY_TRACE_ID];
                 TraceContextPropagator::getInstance()->inject($input);
 
                 $span = $instrumentation::getCachedInstrumentation()

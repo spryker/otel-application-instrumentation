@@ -5,6 +5,7 @@ declare(strict_types=1);
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
 use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\ApplicationInstrumentation;
+use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\BackendGatewayInstrumentation;
 
 if (extension_loaded('opentelemetry') === false) {
     error_log('The opentelemetry extension must be loaded in order to autoload the OpenTelemetry Spryker Framework auto-instrumentation', E_USER_WARNING);
@@ -13,4 +14,5 @@ if (extension_loaded('opentelemetry') === false) {
 }
 
 ApplicationInstrumentation::register(new CachedInstrumentation(), new RequestProcessor());
+BackendGatewayInstrumentation::register(new CachedInstrumentation(), new RequestProcessor());
 
