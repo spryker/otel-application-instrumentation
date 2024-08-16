@@ -22,26 +22,23 @@ use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentationInterface;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessorInterface;
+use Spryker\Zed\Application\Communication\Bootstrap\BackendApiBootstrap;
+use Spryker\Zed\Application\Communication\Bootstrap\BackendGatewayBootstrap;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
 
-class ApplicationInstrumentation
+class BackendApiInstrumentation
 {
     /**
      * @var string
      */
-    protected const METHOD_NAME = 'run';
+    protected const METHOD_NAME = 'boot';
 
     /**
      * @var string
      */
     protected const SPAN_NAME_PLACEHOLDER = '%s %s';
-
-    /**
-     * @var string
-     */
-    protected const APPLICATION_TRACE_ID_KEY = 'application_trace_id';
 
     /**
      * @var string
@@ -68,7 +65,7 @@ class ApplicationInstrumentation
 
         // phpcs:disable
         hook(
-            class: Application::class,
+            class: BackendApiBootstrap::class,
             function: static::METHOD_NAME,
             pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
                 if ($instrumentation::getCachedInstrumentation() === null || $request->getRequest() === null) {

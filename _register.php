@@ -2,9 +2,8 @@
 
 declare(strict_types=1);
 
-use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
-use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
 use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\ApplicationInstrumentation;
+use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\BackendApiInstrumentation;
 use Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry\BackendGatewayInstrumentation;
 
 if (extension_loaded('opentelemetry') === false) {
@@ -13,6 +12,7 @@ if (extension_loaded('opentelemetry') === false) {
     return;
 }
 
-ApplicationInstrumentation::register(new CachedInstrumentation(), new RequestProcessor());
-BackendGatewayInstrumentation::register(new CachedInstrumentation(), new RequestProcessor());
+ApplicationInstrumentation::register();
+BackendGatewayInstrumentation::register();
+BackendApiInstrumentation::register();
 
