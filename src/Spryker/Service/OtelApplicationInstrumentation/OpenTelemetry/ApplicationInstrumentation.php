@@ -8,6 +8,7 @@
 namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 
 use Exception;
+use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
@@ -15,6 +16,7 @@ use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
+use Spryker\Service\Opentelemetry\Storage\AttributesStorage;
 use Spryker\Shared\Application\Application;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
@@ -61,6 +63,7 @@ class ApplicationInstrumentation
     {
         $instrumentation = new CachedInstrumentation();
         $request = new RequestProcessor();
+        $attributesStorage = AttributesStorage::getInstance();
 
         // phpcs:disable
         hook(
@@ -71,9 +74,34 @@ class ApplicationInstrumentation
                     return;
                 }
 
+                $context = Context::getCurrent();
+                $envVars = array (
+                    'backoffice_trace_id' => 'OTEL_BACKOFFICE_TRACE_ID',
+                    'cli_trace_id' => 'OTEL_CLI_TRACE_ID',
+                    'merchant_portal_trace_id' => 'OTEL_MERCHANT_PORTAL_TRACE_ID',
+                    'glue_trace_id' => 'OTEL_GLUE_TRACE_ID',
+                    'yves_trace_id' => 'OTEL_YVES_TRACE_ID',
+                    'backend_gateway_trace_id' => 'OTEL_BACKEND_GATEWAY_TRACE_ID',
+                );
+
+                $extractTraceIdFromEnv = function(array $envVars): array {
+                    foreach ($envVars as $key => $envVar) {
+                        if (defined($envVar)) {
+                            return [$key => constant($envVar)];
+                        }
+                    }
+                    return [];
+                };
+
+                $traceId = $extractTraceIdFromEnv($envVars);
+                if ($traceId !== []) {
+                    $context = TraceContextPropagator::getInstance()->extract($traceId);
+                }
+
                 $span = $instrumentation::getCachedInstrumentation()
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
+                    ->setParent($context)
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
@@ -81,11 +109,11 @@ class ApplicationInstrumentation
                     ->setAttribute(TraceAttributes::CODE_LINENO, $lineno)
                     ->setAttribute(TraceAttributes::URL_QUERY, $request->getRequest()->getQueryString())
                     ->startSpan();
-                $span->activate();
+//                $span->activate();
 
                 Context::storage()->attach($span->storeInContext(Context::getCurrent()));
             },
-            post: static function ($instance, array $params, $returnValue, ?Throwable $exception): void {
+            post: static function ($instance, array $params, $returnValue, ?Throwable $exception) use ($attributesStorage): void {
                 $scope = Context::storage()->scope();
 
                 if ($scope === null) {
@@ -93,6 +121,13 @@ class ApplicationInstrumentation
                 }
 
                 $span = static::handleError($scope);
+
+//                $span->setAttributes($attributesStorage->getAttributes());
+                $currentContext = Context::getCurrent();
+                $parentSpan = Span::fromContext($currentContext);
+                $parentSpan->setAttributes($attributesStorage->getAttributes());
+                $parentSpan->end();
+
                 $span->end();
             },
         );
