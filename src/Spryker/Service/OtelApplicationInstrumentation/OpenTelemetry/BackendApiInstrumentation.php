@@ -8,7 +8,6 @@
 namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 
 use Exception;
-use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
@@ -16,14 +15,9 @@ use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
-use Spryker\Service\Opentelemetry\Storage\AttributesStorage;
-use Spryker\Shared\Application\Application;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
-use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentationInterface;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
-use Spryker\Shared\Opentelemetry\Request\RequestProcessorInterface;
 use Spryker\Zed\Application\Communication\Bootstrap\BackendApiBootstrap;
-use Spryker\Zed\Application\Communication\Bootstrap\BackendGatewayBootstrap;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
