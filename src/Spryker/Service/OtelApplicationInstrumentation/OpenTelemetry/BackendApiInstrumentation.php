@@ -9,7 +9,6 @@ namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 
 use Exception;
 use OpenTelemetry\API\Trace\Span;
-use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
@@ -63,12 +62,14 @@ class BackendApiInstrumentation
         hook(
             class: BackendApiBootstrap::class,
             function: static::METHOD_NAME,
-            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
-                if ($instrumentation::getCachedInstrumentation() === null || $request->getRequest() === null) {
+            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($request): void {
+                putenv('OTEL_SERVICE_NAME=BACKEND_API');
+                $instrumentation = CachedInstrumentation::getCachedInstrumentation();
+                if ($instrumentation === null || $request->getRequest() === null) {
                     return;
                 }
 
-                $span = $instrumentation::getCachedInstrumentation()
+                $span = $instrumentation
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
                     ->setSpanKind(SpanKind::KIND_SERVER)
@@ -90,9 +91,8 @@ class BackendApiInstrumentation
                 }
 
                 $span = static::handleError($scope);
-                $span = SamplerSpanFilter::filter($span);
-
-                $span->end();
+                SamplerSpanFilter::filter($span);
+                //No ending of span due to the fact that ApplicationInstrumentation will end the span and add custom params after.
             },
         );
         // phpcs:enable

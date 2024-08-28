@@ -10,7 +10,6 @@ namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 use Exception;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
-use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
@@ -64,19 +63,19 @@ class ApplicationInstrumentation
      */
     public static function register(): void
     {
-        $instrumentation = new CachedInstrumentation();
         $request = new RequestProcessor();
 
         // phpcs:disable
         hook(
             class: Application::class,
             function: static::METHOD_NAME,
-            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
-                if ($instrumentation::getCachedInstrumentation() === null || $request->getRequest() === null) {
+            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($request): void {
+                $instrumentation = CachedInstrumentation::getCachedInstrumentation();
+                if ($instrumentation === null || $request->getRequest() === null) {
                     return;
                 }
 
-                $span = $instrumentation::getCachedInstrumentation()
+                $span = $instrumentation
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
                     ->setParent(static::prepareContext())
@@ -100,6 +99,7 @@ class ApplicationInstrumentation
                 $span = static::handleError($scope);
                 $span = SamplerSpanFilter::filter($span);
 
+                //Adds custom params to the root span and closes it
                 static::setCustomParametersIntoRootSpan();
 
                 $span->end();
@@ -114,6 +114,8 @@ class ApplicationInstrumentation
     protected static function prepareContext(): ContextInterface
     {
         $context = Context::getCurrent();
+
+        //Change it in order to get ids from config before stable release
         $envVars = [
             'backoffice_trace_id' => 'OTEL_BACKOFFICE_TRACE_ID',
             'cli_trace_id' => 'OTEL_CLI_TRACE_ID',

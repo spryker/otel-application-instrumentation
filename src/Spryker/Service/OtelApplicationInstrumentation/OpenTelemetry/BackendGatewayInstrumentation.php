@@ -10,7 +10,6 @@ namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 use Exception;
 use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
-use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
@@ -62,15 +61,16 @@ class BackendGatewayInstrumentation
      */
     public static function register(): void
     {
-        $instrumentation = new CachedInstrumentation();
         $request = new RequestProcessor();
 
         // phpcs:disable
         hook(
             class: BackendGatewayBootstrap::class,
             function: static::METHOD_NAME,
-            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($instrumentation, $request): void {
-                if ($instrumentation::getCachedInstrumentation() === null || $request->getRequest() === null) {
+            pre: static function ($instance, array $params, string $class, string $function, ?string $filename, ?int $lineno) use ($request): void {
+                putenv('OTEL_SERVICE_NAME=BACKEND_GATEWAY');
+                $instrumentation = CachedInstrumentation::getCachedInstrumentation();
+                if ($instrumentation === null || $request->getRequest() === null) {
                     return;
                 }
 
@@ -81,7 +81,7 @@ class BackendGatewayInstrumentation
                 $input = [static::BACKEND_GATEWAY_TRACE_ID_KEY => OTEL_BACKEND_GATEWAY_TRACE_ID];
                 TraceContextPropagator::getInstance()->inject($input);
 
-                $span = $instrumentation::getCachedInstrumentation()
+                $span = $instrumentation
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
                     ->setSpanKind(SpanKind::KIND_SERVER)
@@ -103,9 +103,8 @@ class BackendGatewayInstrumentation
                 }
 
                 $span = static::handleError($scope);
-                $span = SamplerSpanFilter::filter($span);
-
-                $span->end();
+                SamplerSpanFilter::filter($span);
+                //No ending of span due to the fact that ApplicationInstrumentation will end the span and add custom params after.
             },
         );
         // phpcs:enable

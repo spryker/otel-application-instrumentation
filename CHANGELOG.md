@@ -1,3 +1,3 @@
-# OpenTelemetry Changelog
+# Otel Application Instrumentation Changelog
 
-[Release Changelog](https://github.com/spryker/open-telemetry/releases)
+[Release Changelog](https://github.com/spryker/otel-application-instrumentation/releases)
