@@ -15,10 +15,12 @@ use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
+use OpenTelemetry\SDK\Trace\ReadableSpanInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
 use Spryker\Zed\Application\Communication\Bootstrap\BackendGatewayBootstrap;
+use Spryker\Zed\Opentelemetry\Business\Generator\SpanFilter\SamplerSpanFilter;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
@@ -101,6 +103,7 @@ class BackendGatewayInstrumentation
                 }
 
                 $span = static::handleError($scope);
+                $span = SamplerSpanFilter::filter($span);
 
                 $span->end();
             },
@@ -111,9 +114,9 @@ class BackendGatewayInstrumentation
     /**
      * @param \OpenTelemetry\Context\ContextStorageScopeInterface $scope
      *
-     * @return \OpenTelemetry\API\Trace\SpanInterface
+     * @return \OpenTelemetry\SDK\Trace\ReadableSpanInterface
      */
-    protected static function handleError(ContextStorageScopeInterface $scope): SpanInterface
+    protected static function handleError(ContextStorageScopeInterface $scope): ReadableSpanInterface
     {
         $error = error_get_last();
         $exception = null;
@@ -135,6 +138,7 @@ class BackendGatewayInstrumentation
         $span->setAttribute(static::ERROR_CODE, $exception !== null ? $exception->getCode() : '');
         $span->setStatus($exception !== null ? StatusCode::STATUS_ERROR : StatusCode::STATUS_OK);
 
+        /** @var \OpenTelemetry\SDK\Trace\ReadableSpanInterface $span */
         return $span;
     }
 
