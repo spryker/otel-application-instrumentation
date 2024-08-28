@@ -8,16 +8,21 @@
 namespace Spryker\Service\OtelApplicationInstrumentation\OpenTelemetry;
 
 use Exception;
+use OpenTelemetry\API\Trace\Propagation\TraceContextPropagator;
 use OpenTelemetry\API\Trace\Span;
 use OpenTelemetry\API\Trace\SpanInterface;
 use OpenTelemetry\API\Trace\SpanKind;
 use OpenTelemetry\API\Trace\StatusCode;
 use OpenTelemetry\Context\Context;
+use OpenTelemetry\Context\ContextInterface;
 use OpenTelemetry\Context\ContextStorageScopeInterface;
+use OpenTelemetry\SDK\Trace\ReadableSpanInterface;
 use OpenTelemetry\SemConv\TraceAttributes;
+use Spryker\Service\Opentelemetry\Storage\CustomParameterStorage;
 use Spryker\Shared\Application\Application;
 use Spryker\Shared\Opentelemetry\Instrumentation\CachedInstrumentation;
 use Spryker\Shared\Opentelemetry\Request\RequestProcessor;
+use Spryker\Zed\Opentelemetry\Business\Generator\SpanFilter\SamplerSpanFilter;
 use Symfony\Component\HttpFoundation\Request;
 use Throwable;
 use function OpenTelemetry\Instrumentation\hook;
@@ -74,6 +79,7 @@ class ApplicationInstrumentation
                 $span = $instrumentation::getCachedInstrumentation()
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
+                    ->setParent(static::prepareContext())
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
@@ -81,7 +87,6 @@ class ApplicationInstrumentation
                     ->setAttribute(TraceAttributes::CODE_LINENO, $lineno)
                     ->setAttribute(TraceAttributes::URL_QUERY, $request->getRequest()->getQueryString())
                     ->startSpan();
-                $span->activate();
 
                 Context::storage()->attach($span->storeInContext(Context::getCurrent()));
             },
@@ -93,6 +98,10 @@ class ApplicationInstrumentation
                 }
 
                 $span = static::handleError($scope);
+                $span = SamplerSpanFilter::filter($span);
+
+                static::setCustomParametersIntoRootSpan();
+
                 $span->end();
             },
         );
@@ -100,11 +109,44 @@ class ApplicationInstrumentation
     }
 
     /**
+     * @return \OpenTelemetry\Context\ContextInterface
+     */
+    protected static function prepareContext(): ContextInterface
+    {
+        $context = Context::getCurrent();
+        $envVars = [
+            'backoffice_trace_id' => 'OTEL_BACKOFFICE_TRACE_ID',
+            'cli_trace_id' => 'OTEL_CLI_TRACE_ID',
+            'merchant_portal_trace_id' => 'OTEL_MERCHANT_PORTAL_TRACE_ID',
+            'glue_trace_id' => 'OTEL_GLUE_TRACE_ID',
+            'yves_trace_id' => 'OTEL_YVES_TRACE_ID',
+            'backend_gateway_trace_id' => 'OTEL_BACKEND_GATEWAY_TRACE_ID',
+        ];
+
+        $extractTraceIdFromEnv = function (array $envVars): array {
+            foreach ($envVars as $key => $envVar) {
+                if (defined($envVar)) {
+                    return [$key => constant($envVar)];
+                }
+            }
+
+            return [];
+        };
+
+        $traceId = $extractTraceIdFromEnv($envVars);
+        if ($traceId !== []) {
+            return TraceContextPropagator::getInstance()->extract($traceId);
+        }
+
+        return $context;
+    }
+
+    /**
      * @param \OpenTelemetry\Context\ContextStorageScopeInterface $scope
      *
-     * @return \OpenTelemetry\API\Trace\SpanInterface
+     * @return \OpenTelemetry\SDK\Trace\ReadableSpanInterface
      */
-    protected static function handleError(ContextStorageScopeInterface $scope): SpanInterface
+    protected static function handleError(ContextStorageScopeInterface $scope): ReadableSpanInterface
     {
         $error = error_get_last();
         $exception = null;
@@ -126,6 +168,7 @@ class ApplicationInstrumentation
         $span->setAttribute(static::ERROR_CODE, $exception !== null ? $exception->getCode() : '');
         $span->setStatus($exception !== null ? StatusCode::STATUS_ERROR : StatusCode::STATUS_OK);
 
+        /** @var \OpenTelemetry\SDK\Trace\ReadableSpanInterface $span */
         return $span;
     }
 
@@ -139,5 +182,17 @@ class ApplicationInstrumentation
         $relativeUriWithoutQueryString = str_replace('?' . $request->getQueryString(), '', $request->getUri());
 
         return sprintf(static::SPAN_NAME_PLACEHOLDER, $request->getMethod(), $relativeUriWithoutQueryString);
+    }
+
+    /**
+     * @return void
+     */
+    protected static function setCustomParametersIntoRootSpan(): void
+    {
+        $customParamsStorage = CustomParameterStorage::getInstance();
+        $currentContext = Context::getCurrent();
+        $parentSpan = Span::fromContext($currentContext);
+        $parentSpan->setAttributes($customParamsStorage->getAttributes());
+        $parentSpan->end();
     }
 }
