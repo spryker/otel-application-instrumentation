@@ -59,6 +59,11 @@ class ApplicationInstrumentation
     protected const ERROR_TEXT_PLACEHOLDER = 'Error: %s in %s on line %d';
 
     /**
+     * @var \OpenTelemetry\Context\ContextInterface|null
+     */
+    protected static $rootContext;
+
+    /**
      * @return void
      */
     public static function register(): void
@@ -74,11 +79,11 @@ class ApplicationInstrumentation
                 if ($instrumentation === null || $request->getRequest() === null) {
                     return;
                 }
-
+                static::$rootContext = static::prepareContext();
                 $span = $instrumentation
                     ->tracer()
                     ->spanBuilder(static::formatSpanName($request->getRequest()))
-                    ->setParent(static::prepareContext())
+                    ->setParent(static::$rootContext)
                     ->setSpanKind(SpanKind::KIND_SERVER)
                     ->setAttribute(TraceAttributes::CODE_FUNCTION, $function)
                     ->setAttribute(TraceAttributes::CODE_NAMESPACE, $class)
@@ -97,7 +102,7 @@ class ApplicationInstrumentation
                 }
 
                 $span = static::handleError($scope);
-                $span = SamplerSpanFilter::filter($span);
+                $span = SamplerSpanFilter::filter($span, true);
 
                 //Adds custom params to the root span and closes it
                 static::setCustomParametersIntoRootSpan();
@@ -192,7 +197,7 @@ class ApplicationInstrumentation
     protected static function setCustomParametersIntoRootSpan(): void
     {
         $customParamsStorage = CustomParameterStorage::getInstance();
-        $currentContext = Context::getCurrent();
+        $currentContext = static::$rootContext;
         $parentSpan = Span::fromContext($currentContext);
         $parentSpan->setAttributes($customParamsStorage->getAttributes());
         $parentSpan->end();
